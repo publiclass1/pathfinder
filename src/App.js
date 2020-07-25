@@ -34,7 +34,7 @@ const activeButtonStyle = {
   borderColor: 'orange'
 };
 
-const sleep = (time) => new Promise(res => setTimeout(() => res(), time * 1000));
+// const sleep = (time) => new Promise(res => setTimeout(() => res(), time * 1000));
 
 
 function App() {
@@ -44,11 +44,8 @@ function App() {
   const [pathFindStatus, setPathFindStatus] = useState();
   const [activeBlock, setActiveBlock] = useState(-1);
   const [startCoordinate, setStartCoordinate] = useState([]);
-  const [endCoordinate, setEndCoordinate] = useState([]);
   const [blocksCoordinate, setBlocksCoordinate] = useState([]);
   const [tableRows, setTableRows] = useState([]);
-
-  const [mainBox, setMainBox] = useState({});
   const [emptyBoxes, setEmptBoxes] = useState([]);
 
   const handleOnChangeRow = useCallback((inc) => {
@@ -80,6 +77,23 @@ function App() {
     setCols(cols + inc);
   }
 
+  const generateTableRows = useCallback(() => {
+    const data = range(rows)
+      .map((r) => range(cols)
+        .map((c) => {
+          return ({ id: `${r}:${c}`, r, c, ...BoxTypes.EMPTY });
+        }));
+
+    setTableRows(data);
+  }, [rows, cols]);
+
+  const clearApp = () => {
+    setStartCoordinate([]);
+    setActiveBlock(-1);
+    setPathFindStatus('not-found');
+    generateTableRows();
+  };
+
   const updateTableRows = useCallback((data, boxType) => {
     const newTableRows = [...tableRows];
     newTableRows[data.r][data.c] = {
@@ -100,7 +114,6 @@ function App() {
         break;
       case 1:
         newData = BoxTypes.END;
-        setEndCoordinate([data.r, data.c])
         break;
       case 2:
         newData = BoxTypes.BLOCK;
@@ -116,7 +129,6 @@ function App() {
           setEmptBoxes([]);
         }
         else if (oldData.type === BoxTypes.END.type) {
-          setEndCoordinate([]);
         } else if (oldData.type === BoxTypes.BLOCK.type) {
           setBlocksCoordinate([]);
         }
@@ -160,9 +172,11 @@ function App() {
     setEmptBoxes(getAroundBlocks(startCoordinate));
   }
 
-  const findEndBox = useCallback(async() => {
+  const findEndBox = useCallback(async () => {
     if (emptyBoxes.length) {
       const newEmptyBoxes = [];
+      console.log(emptyBoxes);
+
       for (let emptyBox of emptyBoxes) {
         if (emptyBox.type === BoxTypes.END.type) {
           setPathFindStatus('found');
@@ -178,12 +192,16 @@ function App() {
           setEmptBoxes([]);
           break;
         }
+        console.log({ aroundBoxs });
         const newEmptyBoxList = aroundBoxs.filter(e => e.type === BoxTypes.EMPTY.type);
         newEmptyBoxes.push(...newEmptyBoxList);
       }
       const uniqueEmptyBoxes = uniqBy(newEmptyBoxes, e => e.id)
-        .filter(u => emptyBoxes.filter(e => e.id === u.id).length === 0);
+      // .filter(u => emptyBoxes.filter(e => e.id === u.id).length === 0);
+      console.log({ uniqueEmptyBoxes })
       setEmptBoxes(uniqueEmptyBoxes);
+    } else {
+      console.log('No empty boxes');
     }
   }, [emptyBoxes, getAroundBlocks, updateTableRows]);
 
@@ -199,14 +217,8 @@ function App() {
 
   // initial rows and cols
   useEffect(() => {
-    const data = range(rows)
-      .map((r) => range(cols)
-        .map((c) => {
-          return ({ id: `${r}:${c}`, r, c, ...BoxTypes.EMPTY });
-        }));
-
-    setTableRows(data);
-  }, []);
+    generateTableRows();
+  }, [generateTableRows]);
 
 
   return (
@@ -242,6 +254,12 @@ function App() {
           <button
             onClick={() => setZoom(Math.max(0.1, zoom - 0.1))}>
             -
+        </button>
+
+          <span style={{ marginLeft: 25 }}></span>
+          <button type='button'
+            onClick={() => clearApp(zoom + 0.1)}>
+            Clear
         </button>
         </div>
 
