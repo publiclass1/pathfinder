@@ -259,7 +259,7 @@ function App() {
           <span style={{ marginLeft: 25 }}></span>
           <button type='button'
             onClick={() => clearApp(zoom + 0.1)}>
-            Clear
+            Reset
         </button>
         </div>
 
