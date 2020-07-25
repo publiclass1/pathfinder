@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import range from 'lodash/range';
+import uniqBy from 'lodash/uniqBy';
 
 import TableData from './TableData';
 
@@ -33,6 +34,8 @@ const activeButtonStyle = {
   borderColor: 'orange'
 };
 
+const sleep = (time) => new Promise(res => setTimeout(() => res(), time * 1000));
+
 
 function App() {
   const [rows, setRows] = useState(9);
@@ -48,7 +51,7 @@ function App() {
   const [mainBox, setMainBox] = useState({});
   const [emptyBoxes, setEmptBoxes] = useState([]);
 
-  const handleOnChangeRow = (inc) => {
+  const handleOnChangeRow = useCallback((inc) => {
     const newTableRows = [...tableRows];
     if (inc > 0) {
       newTableRows.push(range(cols).map((ci) => ({ r: rows, c: ci, type: 'empty', color: 'white' })));
@@ -57,14 +60,14 @@ function App() {
     }
     setTableRows(newTableRows);
     setRows(rows + inc);
-  }
+  }, [cols, rows, tableRows]);
 
   const handleOnChangeCol = (inc) => {
-    console.log({rows,cols})
+    console.log({ rows, cols })
     const newTableRows = [...tableRows];
     if (inc > 0) {
       newTableRows.map((row, ri) => {
-        row.push({ r: ri, c: cols , type: 'empty', color: 'white' });
+        row.push({ r: ri, c: cols, type: 'empty', color: 'white' });
         return row;
       })
     } else {
@@ -77,28 +80,14 @@ function App() {
     setCols(cols + inc);
   }
 
-  // trigger on start find path
-  useEffect(() => {
-    if (pathFindStatus === 'start') {
-      if (emptyBoxes.length) {
-        console.log(emptyBoxes);
-      }
-    }
-    if (pathFindStatus === 'found') {
-      alert('Found');
-    }
-  }, [pathFindStatus, emptyBoxes, tableRows]);
-
-  // initial rows and cols
-  useEffect(() => {
-    const data = range(rows)
-      .map((r) => range(cols)
-        .map((c) => {
-          return ({ r, c, ...BoxTypes.EMPTY });
-        }));
-
-    setTableRows(data);
-  }, []);
+  const updateTableRows = useCallback((data, boxType) => {
+    const newTableRows = [...tableRows];
+    newTableRows[data.r][data.c] = {
+      ...newTableRows[data.r][data.c],
+      ...boxType
+    };
+    setTableRows(newTableRows);
+  }, [tableRows]);
 
   const handleOnClick = (data) => () => {
     const newTableRows = [...tableRows];
@@ -122,6 +111,15 @@ function App() {
       case 3:
       default:
         newData = BoxTypes.EMPTY;
+        if (oldData.type === BoxTypes.START.type) {
+          setStartCoordinate([]);
+          setEmptBoxes([]);
+        }
+        else if (oldData.type === BoxTypes.END.type) {
+          setEndCoordinate([]);
+        } else if (oldData.type === BoxTypes.BLOCK.type) {
+          setBlocksCoordinate([]);
+        }
     }
     newTableRows[data.r][data.c] = {
       ...oldData,
@@ -130,45 +128,26 @@ function App() {
     setTableRows(newTableRows);
   }
 
-  const getEmptyBlocks = (coordinate) => {
+  const getAroundBlocks = useCallback((coordinate) => {
     const r = coordinate[0];
     const c = coordinate[1];
-
+    const getRow = (row) => row || [];
     if (r > -1 && c > -1) {
       return [
-        tableRows[r - 1, c], //top
-        tableRows[r - 1, c - 1], //topleft
-        tableRows[r, c - 1], //left
-        tableRows[r + 1, c - 1], //botleft
-        tableRows[r + 1, c], //bottom
-        tableRows[r + 1, c + 1], //botright
-        tableRows[r, c + 1], //right
-        tableRows[r - 1, c + 1], //topright
+        getRow(tableRows[r])[c + 1], //right
+        getRow(tableRows[r - 1])[c + 1], //topright
+        getRow(tableRows[r - 1])[c], //top
+        getRow(tableRows[r - 1])[c - 1], //topleft
+        getRow(tableRows[r])[c - 1], //left
+        getRow(tableRows[r + 1])[c - 1], //botleft
+        getRow(tableRows[r + 1])[c], //bottom
+        getRow(tableRows[r + 1])[c + 1], //botright
       ]
         .filter(e => e); //available
     }
     return [];
-  };
+  }, [tableRows]);
 
-  const updateTableRows = (data, boxType) => {
-    const newTableRows = [...tableRows];
-    newTableRows[data.r][data.c] = {
-      ...newTableRows[data.r][data.c],
-      ...boxType
-    };
-    setTableRows(newTableRows);
-  }
-
-  const sleep = (time) => new Promise(res => setTimeout(() => res(), time * 1000));
-
-  useEffect(() => {
-    if (rows < 20) {
-      console.log({ rows });
-      // sleep(1).then(() => {
-      //   handleOnChangeRow(1);
-      // }).catch(() => { });
-    }
-  }, [rows]);
   const handlePathFinder = () => {
     if (!startCoordinate.length) {
       alert('No start entry.');
@@ -178,17 +157,57 @@ function App() {
     //   return alert('No end entry');
     // }
     setPathFindStatus('start');
-    setEmptBoxes(getEmptyBlocks(startCoordinate));
-    // const newTableRows = [...tableRows];
-    // let emptyBoxTypes = getEmptyBlocks(startCoordinate);
-    // while(emptyBoxTypes.length){
-
-    //   emptyBoxTypes = getEmptyBlocks(startCoordinate);
-    //   for( let emptyBox of emptyBoxTypes){
-    //     updateTableRows(emptyBox,BoxTypes.VISIT);
-    //   }
-    // }
+    setEmptBoxes(getAroundBlocks(startCoordinate));
   }
+
+  const findEndBox = useCallback(async() => {
+    if (emptyBoxes.length) {
+      const newEmptyBoxes = [];
+      for (let emptyBox of emptyBoxes) {
+        if (emptyBox.type === BoxTypes.END.type) {
+          setPathFindStatus('found');
+          setEmptBoxes([]);
+          break;
+        }
+        // await sleep(0.1);
+
+        updateTableRows(emptyBox, BoxTypes.VISIT);
+        const aroundBoxs = getAroundBlocks([emptyBox.r, emptyBox.c]);
+        if (aroundBoxs.filter(e => e.type === BoxTypes.END.type).length) {
+          setPathFindStatus('found');
+          setEmptBoxes([]);
+          break;
+        }
+        const newEmptyBoxList = aroundBoxs.filter(e => e.type === BoxTypes.EMPTY.type);
+        newEmptyBoxes.push(...newEmptyBoxList);
+      }
+      const uniqueEmptyBoxes = uniqBy(newEmptyBoxes, e => e.id)
+        .filter(u => emptyBoxes.filter(e => e.id === u.id).length === 0);
+      setEmptBoxes(uniqueEmptyBoxes);
+    }
+  }, [emptyBoxes, getAroundBlocks, updateTableRows]);
+
+  // trigger on start find path
+  useEffect(() => {
+    if (pathFindStatus === 'start') {
+      findEndBox();
+    }
+    if (pathFindStatus === 'found') {
+      console.log('Found');
+    }
+  }, [findEndBox, pathFindStatus]);
+
+  // initial rows and cols
+  useEffect(() => {
+    const data = range(rows)
+      .map((r) => range(cols)
+        .map((c) => {
+          return ({ id: `${r}:${c}`, r, c, ...BoxTypes.EMPTY });
+        }));
+
+    setTableRows(data);
+  }, []);
+
 
   return (
     <div className="App">
