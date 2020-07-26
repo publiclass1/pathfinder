@@ -1,52 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import range from 'lodash/range';
 import uniqBy from 'lodash/uniqBy';
-
+import useLongPress from './useLongPress';
 import TableData from './TableData';
+import { BoxTypes } from './utils';
 
 
-const BoxTypes = {
-  START: {
-    type: 'start',
-    color: 'blue'
-  },
-  END: {
-    type: 'end',
-    color: 'green'
-  },
-  BLOCK: {
-    type: 'block',
-    color: 'grey'
-  },
-  EMPTY: {
-    type: 'empty',
-    color: 'white'
-  },
-  VISIT: {
-    type: 'visited',
-    color: 'yellow'
-  },
-};
-
-const activeButtonStyle = {
-  borderStyle: 'solid',
-  borderWidth: 3,
-  borderColor: 'orange'
-};
 
 // const sleep = (time) => new Promise(res => setTimeout(() => res(), time * 1000));
 
 
 function App() {
-  const [rows, setRows] = useState(9);
-  const [cols, setCols] = useState(11);
-  const [zoom, setZoom] = useState(1);
+  const [rows, setRows] = useState(39);
+  const [cols, setCols] = useState(80);
+  const [zoom, setZoom] = useState(0.7);
+  const [isMousePress, setIsMousePerss] = useState(false);
   const [pathFindStatus, setPathFindStatus] = useState();
   const [activeBlock, setActiveBlock] = useState(-1);
   const [startCoordinate, setStartCoordinate] = useState([]);
   const [blocksCoordinate, setBlocksCoordinate] = useState([]);
   const [tableRows, setTableRows] = useState([]);
   const [emptyBoxes, setEmptBoxes] = useState([]);
+
+  const activeButtonStyle = {
+    borderStyle: 'solid',
+    borderWidth: 3,
+    borderColor: 'orange'
+  };
+
 
   const handleOnChangeRow = useCallback((inc) => {
     const newTableRows = [...tableRows];
@@ -205,6 +186,12 @@ function App() {
     }
   }, [emptyBoxes, getAroundBlocks, updateTableRows]);
 
+  const handleOnMouseOver = useCallback((data) => () => {
+    if ((activeBlock === 2 || activeBlock === 3) && isMousePress) {
+      updateTableRows(data, BoxTypes.BLOCK);
+    }
+  }, [updateTableRows, activeBlock, isMousePress]);
+
   // trigger on start find path
   useEffect(() => {
     if (pathFindStatus === 'start') {
@@ -222,7 +209,8 @@ function App() {
 
 
   return (
-    <div className="App">
+    <div className="App" style={{ margin: 25 }}
+    >
       <div style={{ marginBottom: 20 }}>
         Controls
         <div>
@@ -325,20 +313,22 @@ function App() {
       </div>
       <div>
         Tables
-        <table>
+        <table cellSpacing={0} cellPadding={0} style={{borderCollapse:'collapse'}}>
           <tbody style={{
-            borderWidth: 1,
-            borderStyle: 'solid',
+
             height: 'calc(100% - 35)',
             width: 'calc(100% - 35)',
             margin: 35,
             zoom: zoom
-          }}>
+          }} onMouseUp={(e) => setIsMousePerss(false)}
+            onMouseDown={() => setIsMousePerss(true)}
+          >
             {
               tableRows.map((r, ri) =>
                 <tr key={'r' + ri}>
                   {
                     r.map((c, ci) => <TableData
+                      onMouseOver={handleOnMouseOver(c)}
                       onClick={handleOnClick(c)}
                       key={ri + '-' + ci}
                       data={c}
