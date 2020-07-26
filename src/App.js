@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import range from 'lodash/range';
 import uniqBy from 'lodash/uniqBy';
-import useLongPress from './useLongPress';
 import TableData from './TableData';
 import { BoxTypes } from './utils';
 
